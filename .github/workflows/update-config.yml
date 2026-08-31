@@ -1,0 +1,38 @@
+name: Update Shadowrocket config
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "23 18 * * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-shadowrocket-config
+  cancel-in-progress: false
+
+jobs:
+  build-and-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Build from latest upstream lazy config
+        run: python3 scripts/build_config.py
+
+      - name: Validate policies and remote rule lists
+        run: python3 scripts/validate_config.py --check-urls
+
+      - name: Publish when the generated config changed
+        run: |
+          if git diff --quiet -- output/Shadowrocket-Pro.conf; then
+            echo "No configuration changes."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add output/Shadowrocket-Pro.conf
+          git commit -m "chore: update generated Shadowrocket config"
+          git push
